@@ -1,37 +1,146 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Downloader</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        *{margin:0;padding:0;box-sizing:border-box;}
-        body{font-family:Arial;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;padding:40px 20px;}
-        .container{max-width:800px;margin:0 auto;background:white;border-radius:30px;padding:40px;text-align:center;}
-        h1{font-size:32px;margin-bottom:10px;}
-        input{width:70%;padding:15px;margin:20px 0;border:1px solid #ddd;border-radius:10px;}
-        button{padding:15px 30px;background:#667eea;color:white;border:none;border-radius:10px;cursor:pointer;}
-        .loader{display:none;margin:20px;}
-        .error{color:red;margin:10px;}
-        .preview{display:none;margin-top:20px;text-align:left;}
-        img{max-width:100%;border-radius:10px;}
-        .quality-btn{padding:10px;margin:5px;background:#f0f0f0;border:none;border-radius:5px;cursor:pointer;}
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        input {
+            width: 80%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #5a67d8;
+        }
+        .loader {
+            display: none;
+            margin: 20px;
+            color: #667eea;
+        }
+        .error {
+            color: red;
+            margin: 20px;
+            padding: 10px;
+            background: #fee;
+            border-radius: 10px;
+            display: none;
+        }
+        .preview {
+            display: none;
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #eee;
+        }
+        .thumbnail {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        .title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .quality-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .quality-btn {
+            background: #f0f0f0;
+            color: #333;
+            padding: 10px 20px;
+            font-size: 14px;
+        }
+        .quality-btn.selected {
+            background: #28a745;
+            color: white;
+        }
+        .download-btn {
+            background: #28a745;
+            font-size: 18px;
+            padding: 15px 50px;
+        }
+        .badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .badge {
+            background: #e0e0e0;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>🎥 Video Downloader</h1>
-    <p>YouTube, Instagram, TikTok, Twitter, Facebook</p>
-    <input type="text" id="urlInput" placeholder="Paste video URL here">
+    <p>Download from YouTube, Instagram, TikTok, Twitter, Facebook & more</p>
+    
+    <div class="badges">
+        <span class="badge">YouTube</span>
+        <span class="badge">Instagram</span>
+        <span class="badge">TikTok</span>
+        <span class="badge">Twitter</span>
+        <span class="badge">Facebook</span>
+    </div>
+    
+    <input type="text" id="url" placeholder="Paste video URL here...">
     <br>
-    <button onclick="fetchVideo()">Analyze</button>
-    <div id="loader" class="loader">Loading...</div>
-    <div id="error" class="error"></div>
-    <div id="preview" class="preview">
-        <img id="thumbnail" src="">
-        <h3 id="title"></h3>
-        <div id="qualities"></div>
-        <button id="downloadBtn" style="display:none;" onclick="downloadVideo()">Download</button>
+    <button onclick="getInfo()">🔍 Analyze</button>
+    
+    <div class="loader" id="loader">⏳ Processing...</div>
+    <div class="error" id="error"></div>
+    
+    <div class="preview" id="preview">
+        <img class="thumbnail" id="thumbnail" src="">
+        <div class="title" id="title"></div>
+        <div class="quality-buttons" id="qualities"></div>
+        <button class="download-btn" onclick="download()">⬇️ Download Video</button>
     </div>
 </div>
 
@@ -39,73 +148,116 @@
 let currentUrl = '';
 let currentFormat = '';
 
-async function fetchVideo() {
-    const url = document.getElementById('urlInput').value;
-    if(!url){
-        alert('Enter URL');
+async function getInfo() {
+    const url = document.getElementById('url').value;
+    if (!url) {
+        showError('Please enter a URL');
         return;
     }
-    currentUrl = url;
-    document.getElementById('loader').style.display = 'block';
-    document.getElementById('error').innerHTML = '';
     
-    try{
-        const res = await fetch('/api/info', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({url:url})
+    currentUrl = url;
+    showLoader(true);
+    hideError();
+    hidePreview();
+    
+    try {
+        const response = await fetch('/api/info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: url })
         });
-        const data = await res.json();
-        if(data.success){
-            document.getElementById('preview').style.display = 'block';
-            document.getElementById('thumbnail').src = data.thumbnail;
-            document.getElementById('title').innerHTML = data.title;
-            const qDiv = document.getElementById('qualities');
-            qDiv.innerHTML = '<h4>Select Quality:</h4>';
-            data.formats.forEach(f => {
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('thumbnail').src = data.thumbnail || 'https://via.placeholder.com/300x200?text=No+Thumbnail';
+            document.getElementById('title').innerText = data.title;
+            
+            const qualitiesDiv = document.getElementById('qualities');
+            qualitiesDiv.innerHTML = '';
+            
+            data.formats.forEach(format => {
                 const btn = document.createElement('button');
+                btn.innerText = `${format.resolution} (${format.ext})`;
                 btn.className = 'quality-btn';
-                btn.innerHTML = f.resolution + ' (' + f.ext + ')';
-                btn.onclick = () => {
-                    currentFormat = f.format_id;
-                    document.getElementById('downloadBtn').style.display = 'block';
-                };
-                qDiv.appendChild(btn);
+                btn.onclick = () => selectQuality(format.format_id, btn);
+                qualitiesDiv.appendChild(btn);
             });
+            
+            showPreview();
         } else {
-            document.getElementById('error').innerHTML = data.error;
+            showError(data.error || 'Failed to get video info');
         }
-    } catch(e){
-        document.getElementById('error').innerHTML = 'Error: ' + e.message;
+    } catch (err) {
+        showError('Network error: ' + err.message);
     }
-    document.getElementById('loader').style.display = 'none';
+    
+    showLoader(false);
 }
 
-async function downloadVideo() {
-    if(!currentFormat){
-        alert('Select quality first');
+function selectQuality(formatId, btn) {
+    currentFormat = formatId;
+    document.querySelectorAll('.quality-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+}
+
+async function download() {
+    if (!currentFormat) {
+        alert('Please select a video quality first');
         return;
     }
-    document.getElementById('loader').style.display = 'block';
-    try{
-        const res = await fetch('/api/download', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({url:currentUrl, format_id:currentFormat, type:'video'})
+    
+    showLoader(true);
+    
+    try {
+        const response = await fetch('/api/download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                url: currentUrl, 
+                format_id: currentFormat 
+            })
         });
-        if(res.ok){
-            const blob = await res.blob();
+        
+        if (response.ok) {
+            const blob = await response.blob();
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = 'video.mp4';
             a.click();
+            URL.revokeObjectURL(a.href);
         } else {
-            alert('Download failed');
+            const error = await response.json();
+            alert('Download failed: ' + error.error);
         }
-    } catch(e){
-        alert('Error: ' + e.message);
+    } catch (err) {
+        alert('Download error: ' + err.message);
     }
-    document.getElementById('loader').style.display = 'none';
+    
+    showLoader(false);
+}
+
+function showLoader(show) {
+    document.getElementById('loader').style.display = show ? 'block' : 'none';
+}
+
+function showError(msg) {
+    const errorDiv = document.getElementById('error');
+    errorDiv.innerText = msg;
+    errorDiv.style.display = 'block';
+    setTimeout(() => errorDiv.style.display = 'none', 5000);
+}
+
+function hideError() {
+    document.getElementById('error').style.display = 'none';
+}
+
+function showPreview() {
+    document.getElementById('preview').style.display = 'block';
+}
+
+function hidePreview() {
+    document.getElementById('preview').style.display = 'none';
 }
 </script>
 </body>
