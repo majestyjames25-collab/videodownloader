@@ -275,7 +275,7 @@
         <div class="input-section">
             <div class="url-input-wrapper">
                 <input type="url" id="urlInput" placeholder="Paste video URL here..." autocomplete="off">
-                <button id="fetchBtn" onclick="alert('Button clicked!'); fetchVideoInfo()">📋 Analyze</button>
+               <button id="fetchBtn" onclick="fetchVideoInfo().catch(e => alert(e))">📋 Analyze</button>
             </div>
         </div>
         <div id="loader" class="loader">
