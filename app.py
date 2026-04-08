@@ -5,6 +5,7 @@ import os
 import time
 import threading
 import ssl
+
 ssl._create_default_https_context = ssl._create_unverified_context
 
 app = Flask(__name__)
@@ -17,11 +18,9 @@ def get_video_info(url):
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
-        'extract_flat': False,
         'ignoreerrors': True,
         'no_check_certificate': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'referer': 'https://www.google.com/',
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     }
     
     try:
@@ -96,6 +95,10 @@ threading.Thread(target=cleanup_old_files, daemon=True).start()
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
 
 @app.route('/api/info', methods=['POST'])
 def api_info():
