@@ -14,7 +14,12 @@ os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 SUPPORTED_SITES = ['YouTube', 'Instagram', 'TikTok', 'Twitter/X', 'Facebook', 'Reddit', 'Twitch', 'Vimeo']
 
 def get_video_info(url):
-    ydl_opts = {'quiet': True, 'no_warnings': True}
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'extract_flat': False,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -49,6 +54,7 @@ def download_video(url, format_id='best'):
             'quiet': True,
             'no_warnings': True,
             'merge_output_format': 'mp4',
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -72,6 +78,7 @@ def download_audio(url):
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }],
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
