@@ -4,6 +4,8 @@ import yt_dlp
 import os
 import time
 import threading
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 app = Flask(__name__)
 CORS(app)
@@ -11,41 +13,44 @@ CORS(app)
 DOWNLOAD_FOLDER = 'downloads'
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
-SUPPORTED_SITES = ['YouTube', 'Instagram', 'TikTok', 'Twitter/X', 'Facebook', 'Reddit', 'Twitch', 'Vimeo']
-
 def get_video_info(url):
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
         'extract_flat': False,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'ignoreerrors': True,
+        'no_check_certificate': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'referer': 'https://www.google.com/',
     }
+    
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
+            
             formats = []
             for f in info.get('formats', []):
-                if f.get('vcodec') != 'none' and f.get('acodec') != 'none':
+                height = f.get('height')
+                if height and height >= 360:
                     formats.append({
                         'format_id': f['format_id'],
-                        'resolution': f.get('height', 'Auto'),
-                        'filesize': f.get('filesize', 0),
-                        'ext': f['ext']
+                        'resolution': f'{height}p',
+                        'ext': f['ext'],
+                        'filesize': f.get('filesize', 0)
                     })
+            
             return {
                 'success': True,
-                'title': info.get('title', 'Untitled'),
+                'title': info.get('title', 'Video'),
                 'thumbnail': info.get('thumbnail', ''),
                 'duration': info.get('duration', 0),
                 'uploader': info.get('uploader', 'Unknown'),
-                'views': info.get('view_count', 0),
-                'formats': formats[:10],
-                'website': info.get('extractor_key', 'Unknown')
+                'formats': formats[:5]
             }
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-def download_video(url, format_id='best'):
+def download_video(url, format_id):
     try:
         timestamp = int(time.time())
         ydl_opts = {
@@ -54,36 +59,23 @@ def download_video(url, format_id='best'):
             'quiet': True,
             'no_warnings': True,
             'merge_output_format': 'mp4',
+            'ignoreerrors': True,
+            'no_check_certificate': True,
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         }
+        
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
+            
             if not os.path.exists(filename):
-                filename = filename.rsplit('.', 1)[0] + '.' + info.get('ext', 'mp4')
+                base = filename.rsplit('.', 1)[0]
+                for ext in ['mp4', 'webm', 'mkv']:
+                    if os.path.exists(f'{base}.{ext}'):
+                        filename = f'{base}.{ext}'
+                        break
+            
             return filename, info.get('title', 'video')
-    except Exception as e:
-        return None, str(e)
-
-def download_audio(url):
-    try:
-        timestamp = int(time.time())
-        ydl_opts = {
-            'outtmpl': os.path.join(DOWNLOAD_FOLDER, f'audio_{timestamp}.%(ext)s'),
-            'format': 'bestaudio/best',
-            'quiet': True,
-            'no_warnings': True,
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = os.path.join(DOWNLOAD_FOLDER, f'audio_{timestamp}.mp3')
-            return filename, f"{info.get('title', 'audio')}.mp3"
     except Exception as e:
         return None, str(e)
 
@@ -92,19 +84,18 @@ def cleanup_old_files():
         time.sleep(3600)
         try:
             now = time.time()
-            for filename in os.listdir(DOWNLOAD_FOLDER):
-                filepath = os.path.join(DOWNLOAD_FOLDER, filename)
-                if os.path.isfile(filepath) and now - os.path.getmtime(filepath) > 3600:
-                    os.remove(filepath)
+            for f in os.listdir(DOWNLOAD_FOLDER):
+                path = os.path.join(DOWNLOAD_FOLDER, f)
+                if os.path.isfile(path) and now - os.path.getmtime(path) > 3600:
+                    os.remove(path)
         except:
             pass
 
-cleanup_thread = threading.Thread(target=cleanup_old_files, daemon=True)
-cleanup_thread.start()
+threading.Thread(target=cleanup_old_files, daemon=True).start()
 
 @app.route('/')
 def index():
-    return render_template('index.html', sites=SUPPORTED_SITES)
+    return render_template('index.html')
 
 @app.route('/api/info', methods=['POST'])
 def api_info():
@@ -112,21 +103,19 @@ def api_info():
     url = data.get('url')
     if not url:
         return jsonify({'success': False, 'error': 'URL required'}), 400
-    result = get_video_info(url)
-    return jsonify(result)
+    return jsonify(get_video_info(url))
 
 @app.route('/api/download', methods=['POST'])
 def api_download():
     data = request.get_json()
     url = data.get('url')
-    format_id = data.get('format_id', 'best')
-    download_type = data.get('type', 'video')
+    format_id = data.get('format_id')
+    
     if not url:
         return jsonify({'success': False, 'error': 'URL required'}), 400
-    if download_type == 'audio':
-        filepath, title = download_audio(url)
-    else:
-        filepath, title = download_video(url, format_id)
+    
+    filepath, title = download_video(url, format_id)
+    
     if filepath and os.path.exists(filepath):
         @after_this_request
         def cleanup(response):
@@ -135,8 +124,13 @@ def api_download():
             except:
                 pass
             return response
-        mimetype = 'audio/mpeg' if download_type == 'audio' else 'video/mp4'
-        return send_file(filepath, as_attachment=True, download_name=title, mimetype=mimetype)
+        
+        return send_file(
+            filepath,
+            as_attachment=True,
+            download_name=f"{title}.mp4",
+            mimetype='video/mp4'
+        )
     else:
         return jsonify({'success': False, 'error': title}), 400
 
